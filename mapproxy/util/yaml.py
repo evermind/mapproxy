@@ -17,6 +17,8 @@ from __future__ import absolute_import
 
 from mapproxy.compat import string_type
 import yaml
+import re
+from os import environ as env
 
 class YAMLError(Exception):
     pass
@@ -44,6 +46,31 @@ def _load_yaml(doc):
     except (yaml.scanner.ScannerError, yaml.parser.ParserError) as ex:
         raise YAMLError(str(ex))
 
+def resolve_placeholder(match):
+    placeholder=match.group(1)
+    default=None
+    if ':' in placeholder:
+        (placeholder,default)=placeholder.split(':',1)
+
+    if placeholder in env:
+        return env[placeholder]
+
+    if default is not None:
+        return default
+
+    raise ValueError("Unable to resolve placeholder: %s"%placeholder)
+
+def replace_placeholders(data):
+    if type(data) is dict:
+        for (k,v) in data.items():
+            data[k]=replace_placeholders(v)
+    elif type(data) is list:
+        for (k,v) in enumerate(data):
+            data[k]=replace_placeholders(v)
+    elif type(data) is str:
+        data=re.sub('\\$\\{([^}]+)\\}',resolve_placeholder,data)
+    return data
+
 def load_yaml(doc):
     """
     Load yaml from file object or string.
@@ -52,5 +79,5 @@ def load_yaml(doc):
     if type(data) is not dict:
         # all configs are dicts, raise YAMLError to prevent later AttributeErrors (#352)
         raise YAMLError("configuration not a YAML dictionary")
-    return data
 
+    return replace_placeholders(data)
