@@ -73,6 +73,8 @@ class WMSClient(object):
             else:
                 log_size = 100 # image?
             data = resp.read(log_size)
+            if not isinstance(data, str):
+                data = data.decode()
             if len(data) == log_size:
                 data += '... truncated'
             log.warn("no image returned from source WMS: %s, response was: %s" % (url, data))
